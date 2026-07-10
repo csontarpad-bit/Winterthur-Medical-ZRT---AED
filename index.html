@@ -500,6 +500,17 @@
                                     <textarea rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-lightblue focus:border-brand-lightblue outline-none transition-all"></textarea>
                                 </div>
                                 
+                                <!-- ================= GDPR CHECKBOX HOZZÁADVA ================= -->
+                                <div class="pt-2">
+                                    <label class="flex items-start cursor-pointer group">
+                                        <input type="checkbox" required class="mt-1 mr-3 w-4 h-4 text-brand-blue rounded border-gray-300 focus:ring-brand-blue outline-none">
+                                        <span class="text-xs text-gray-500 leading-tight">
+                                            Elolvastam és elfogadom az <a href="#" target="_blank" class="text-brand-blue underline hover:text-blue-800">Adatvédelmi tájékoztatót</a>, és hozzájárulok személyes adataim kezeléséhez az ajánlatkérés feldolgozása céljából. *
+                                        </span>
+                                    </label>
+                                </div>
+                                <!-- ========================================================= -->
+
                                 <div class="pt-2">
                                     <button type="submit" class="w-full bg-brand-red hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 font-heading text-lg">
                                         Személyre szabott ajánlat kérése
@@ -513,7 +524,13 @@
                                     <i class="fa-solid fa-check"></i>
                                 </div>
                                 <h3 class="text-2xl font-bold text-gray-900 mb-2 font-heading">Köszönjük megkeresését!</h3>
-                                <p class="text-gray-600">Az igényeit rögzítettük. A Winterthur Medical Zrt. szakértője hamarosan felveszi Önnel a kapcsolatot.</p>
+                                <p class="text-gray-600 mb-8">Az igényeit rögzítettük. A Winterthur Medical Zrt. szakértője hamarosan felveszi Önnel a kapcsolatot.</p>
+                                
+                                <!-- ================= VISSZA / ÚJRA GOMB HOZZÁADVA ================= -->
+                                <button onclick="location.reload()" class="border-2 border-brand-blue text-brand-blue hover:bg-brand-blue hover:text-white font-bold py-2 px-6 rounded-lg transition-all shadow-sm">
+                                    <i class="fa-solid fa-rotate-right mr-2"></i> Új konfiguráció indítása
+                                </button>
+                                <!-- ================================================================ -->
                             </div>
                         </div>
                     </div>
@@ -597,6 +614,7 @@
 
                 // --- 0. Hang lejátszása ---
                 if (heartbeatAudio) {
+                    heartbeatAudio.volume = 1.0; // Hangerő 50%-ra állítása, hogy ne legyen fülsiketítő
                     heartbeatAudio.currentTime = 0; // Visszatekerjük az elejére
                     // A play() egy promise-t ad vissza. Elkapjuk a hibát, ha a böngésző esetleg tiltaná a hanglejátszást.
                     heartbeatAudio.play().catch(e => console.log("Hanglejátszás blokkolva, vagy hiányzik a heartbeat.mp3 fájl."));
