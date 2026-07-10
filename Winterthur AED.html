@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Winterthur Medical - AED Konfigurátor</title>
+    <!-- Tailwind CSS (CDN) a gyors és modern dizájnhoz -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Montserrat (Címsorok) & Open Sans (Szöveg) -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Open+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+    <!-- FontAwesome ikonok -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Winterthur Arculati Beállítások (Kódex alapján) -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            blue: '#004C93',
+                            lightblue: '#00ADEF',
+                            red: '#eb1c22',
+                            yellow: '#fcd532',
+                            gray: '#8A8A8A',
+                            lightbg: '#f8fafc'
+                        }
+                    },
+                    fontFamily: {
+                        heading: ['Montserrat', 'sans-serif'],
+                        body: ['Open Sans', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Open Sans', sans-serif; background-color: #f0f4f8; }
+        h1, h2, h3, h4, h5, h6 { font-family: 'Montserrat', sans-serif; }
+        
+        /* Moduláris léptetés animációi */
+        .step-module {
+            display: none;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        .step-module.active {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Konténer homályosítás animációhoz */
+        #moduleContainer {
+            transition: filter 0.4s ease, opacity 0.4s ease;
+        }
+
+        /* Szívritmus (EKG) vonal animáció */
+        .animate-ekg {
+            stroke-dasharray: 1200;
+            stroke-dashoffset: 1200;
+            animation: drawEkg 0.9s ease-in-out forwards;
+        }
+        @keyframes drawEkg {
+            0% { stroke-dashoffset: 1200; }
+            100% { stroke-dashoffset: 0; }
+        }
+
+        /* Egyedi input stílusok (Radio kártyák) */
+        .radio-card input[type="radio"] { display: none; }
+        .radio-card input[type="radio"]:checked + div {
+            border-color: #004C93;
+            background-color: #f0f7ff;
+            box-shadow: 0 4px 6px -1px rgba(0, 76, 147, 0.2);
+        }
+        .radio-card input[type="radio"]:checked + div .check-icon {
+            opacity: 1;
+            transform: scale(1);
+        }
+        
+        .checkbox-card input[type="checkbox"] { display: none; }
+        .checkbox-card input[type="checkbox"]:checked + div {
+            border-color: #00ADEF;
+            background-color: #f0f7ff;
+        }
+        .checkbox-card input[type="checkbox"]:checked + div .check-icon {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* Csúszka stílus */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 24px;
+            width: 24px;
+            border-radius: 50%;
+            background: #004C93;
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="text-gray-800 min-h-screen flex flex-col relative">
+
+    <!-- Szívritmus Hang (Ide fog hivatkozni az MP3 fájlod) -->
+    <audio id="heartbeatSound" src="heartbeat.mp3" preload="auto"></audio>
+
+    <!-- Szívritmus Animáció Overlay (Alapból rejtett) -->
+    <div id="heartbeatOverlay" class="fixed inset-0 z-[100] hidden items-center justify-center pointer-events-none">
+        <svg viewBox="0 0 1000 200" class="w-full max-w-5xl h-48 drop-shadow-2xl">
+            <!-- EKG Vonal (Brand Red) -->
+            <path class="ekg-path fill-transparent stroke-brand-red stroke-[6px] drop-shadow-md" stroke-linecap="round" stroke-linejoin="round"
+                  d="M 0 100 L 400 100 L 430 40 L 470 180 L 510 20 L 550 160 L 580 100 L 1000 100" />
+        </svg>
+    </div>
+
+    <!-- Header & Progress -->
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
+            
+            <!-- ========================= SAJÁT LOGÓ BEILLESZTÉSE ========================= -->
+            <!-- Másold a saját logód képfájlját a HTML mellé, és írd át a 'src' értékét a pontos fájlnévre! -->
+            <div class="flex items-center">
+                <img src="winterthur_logo.png" alt="Winterthur Medical Zrt." class="h-10 md:h-14 w-auto object-contain">
+            </div>
+            <!-- =========================================================================== -->
+            
+            <div class="text-sm font-semibold text-brand-blue hidden md:block">
+                <i class="fa-solid fa-phone mr-1"></i> +36 30 443 4443
+            </div>
+        </div>
+        <!-- Progress Bar -->
+        <div class="h-1.5 w-full bg-gray-200">
+            <div id="progressBar" class="h-1.5 bg-brand-blue transition-all duration-500 ease-in-out" style="width: 14%;"></div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow flex items-center justify-center p-4 py-10 z-10">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-4xl overflow-hidden relative min-h-[500px] flex flex-col">
+            
+            <div class="p-8 md:p-12 flex-grow relative" id="moduleContainer">
+                
+                <!-- ==========================================
+                     STEP 1: EDUKÁCIÓ (Info 1)
+                =========================================== -->
+                <div class="step-module active" data-step="1">
+                    <div class="text-center max-w-2xl mx-auto">
+                        <div class="w-20 h-20 bg-blue-50 text-brand-blue rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">
+                            <i class="fa-solid fa-heart-pulse"></i>
+                        </div>
+                        <h2 class="text-3xl font-bold text-gray-900 mb-4 font-heading">Életmentés másodpercek alatt</h2>
+                        <p class="text-lg text-gray-600 mb-8 font-body leading-relaxed">
+                            A hirtelen szívmegállás bárhol, bármikor bekövetkezhet. A túlélési esély percenként 10%-kal csökken. Egy megbízható félautomata defibrillátor (AED) jelenléte a munkahelyen, közintézményben vagy telephelyen a túlélési esélyeket akár 70%-kal is növelheti.
+                        </p>
+                        
+                        <!-- ========================= VIDEÓ BEILLESZTÉS ========================= -->
+                        <div class="bg-gray-100 rounded-xl overflow-hidden relative shadow-inner mx-auto w-full" style="aspect-ratio: 16/9;">
+                            <!-- Saját MP4 videó beágyazása (a fájlnak a HTML mellett kell lennie) -->
+                            <video controls preload="metadata" class="w-full h-full absolute inset-0 object-cover bg-black rounded-xl">
+                                <source src="AED.mp4" type="video/mp4">
+                                Sajnos a böngészője nem támogatja a beágyazott videókat. Kérjük, frissítse böngészőjét!
+                            </video>
+                        </div>
+                        <!-- ======================================================================= -->
+
+                    </div>
+                </div>
+
+                <!-- ==========================================
+                     STEP 2: WINTERTHUR MEGOLDÁS (Info 2)
+                =========================================== -->
+                <div class="step-module" data-step="2">
+                    <div class="grid md:grid-cols-2 gap-8 items-center h-full">
+                        <div>
+                            <span class="text-brand-lightblue font-bold tracking-wider uppercase text-sm mb-2 block">Innováció & Szakmaiság</span>
+                            <h2 class="text-3xl font-bold text-gray-900 mb-6 font-heading">Miért fizetne többet elavult technológiáért?</h2>
+                            <p class="text-gray-600 mb-6 font-body leading-relaxed">
+                                Sokan biztosra mennek, és a piacon kapható legdrágább készülékeket választják, abban a hitben, hogy az a legjobb.
+                            </p>
+                            <p class="text-gray-600 mb-6 font-body leading-relaxed">
+                                A Winterthur Medical által forgalmazott <strong class="text-brand-blue">AED7000</strong> nem csupán költséghatékonyabb, de technológiájában modernebb is.
+                            </p>
+                            <ul class="space-y-4">
+                                <li class="flex items-start">
+                                    <i class="fa-solid fa-check text-brand-lightblue mt-1 mr-3"></i>
+                                    <span><strong>Folyamatos Önteszt (Self-testing):</strong> Garantálja, hogy a gép mindig bevetésre kész.</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <i class="fa-solid fa-check text-brand-lightblue mt-1 mr-3"></i>
+                                    <span><strong>Gyors EKG Analízis:</strong> Pontos és azonnali ritmus-elemzés (Bifázisos technológia).</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <i class="fa-solid fa-check text-brand-lightblue mt-1 mr-3"></i>
+                                    <span><strong>Világos hangutasítások:</strong> Magyar nyelven, laikusok számára is egyértelműen vezet végig az újraélesztésen.</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="bg-brand-lightbg rounded-xl p-6 text-center shadow-inner relative">
+                            
+                            <!-- ========================= KÉP BEILLESZTÉS 1 ========================= -->
+                            <!-- A 'src="..."' részbe másold be a saját képed linkjét. Pl: src="kepek/aed7000.jpg" -->
+                            <img src="AED_01.png" alt="AED7000 Készülék" class="mx-auto rounded shadow-lg max-w-full h-auto mb-4">
+                            <!-- ===================================================================== -->
+                            
+                            <div class="absolute -bottom-4 -right-4 bg-brand-yellow text-gray-900 font-bold px-4 py-2 rounded-lg shadow-lg font-heading">
+                                Prémium minőség
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==========================================
+                     STEP 3: ALAPIGÉNYEK (Választás 1)
+                =========================================== -->
+                <div class="step-module" data-step="3">
+                    <div class="max-w-2xl mx-auto">
+                        <h2 class="text-3xl font-bold text-gray-900 mb-2 font-heading text-center">Tervezzük meg a hálózatot</h2>
+                        <p class="text-center text-gray-500 mb-10">Kérjük, adja meg a telepítés alapvető paramétereit az optimális csomag összeállításához.</p>
+                        
+                        <!-- Mennyiség (Maximum 100-ra emelve) -->
+                        <div class="mb-10 bg-gray-50 p-6 rounded-xl border border-gray-100">
+                            <label class="block text-lg font-bold text-gray-800 mb-4 font-heading">1. Hány darab készülékre van szükség?</label>
+                            <div class="flex items-center gap-6">
+                                <input type="range" id="qtySlider" min="1" max="100" value="1" class="flex-grow" oninput="updateQtyDisplay(this.value)">
+                                <div class="bg-white border-2 border-brand-blue text-brand-blue font-bold text-2xl px-6 py-3 rounded-lg w-28 text-center shadow-sm">
+                                    <span id="qtyDisplay">1</span>
+                                </div>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-3"><i class="fa-solid fa-circle-info mr-1"></i> Több telephely vagy nagy alapterület esetén (pl. 20 db felett) egyedi, volumenkedvezményt biztosítunk.</p>
+                        </div>
+
+                        <!-- Elhelyezés -->
+                        <div>
+                            <label class="block text-lg font-bold text-gray-800 mb-4 font-heading">2. Hol lesznek elhelyezve a készülékek?</label>
+                            <div class="grid grid-cols-2 gap-4">
+                                <label class="radio-card cursor-pointer">
+                                    <input type="radio" name="environment" value="indoor" checked onchange="updateState('environment', 'indoor')">
+                                    <div class="border-2 border-gray-200 rounded-xl p-6 hover:border-brand-lightblue transition-all relative h-full flex flex-col items-center text-center">
+                                        <div class="check-icon absolute top-3 right-3 text-brand-blue opacity-0 transition-all scale-50"><i class="fa-solid fa-circle-check text-xl"></i></div>
+                                        <i class="fa-solid fa-building text-4xl text-gray-400 mb-3"></i>
+                                        <h3 class="font-bold text-lg mb-1">Kizárólag Beltér</h3>
+                                        <p class="text-sm text-gray-500">Irodák, iskolák, folyosók. Normál szobahőmérséklet.</p>
+                                    </div>
+                                </label>
+                                <label class="radio-card cursor-pointer">
+                                    <input type="radio" name="environment" value="outdoor" onchange="updateState('environment', 'outdoor')">
+                                    <div class="border-2 border-gray-200 rounded-xl p-6 hover:border-brand-lightblue transition-all relative h-full flex flex-col items-center text-center">
+                                        <div class="check-icon absolute top-3 right-3 text-brand-blue opacity-0 transition-all scale-50"><i class="fa-solid fa-circle-check text-xl"></i></div>
+                                        <i class="fa-solid fa-tree-city text-4xl text-gray-400 mb-3"></i>
+                                        <h3 class="font-bold text-lg mb-1">Kültér is érintett</h3>
+                                        <p class="text-sm text-gray-500">Gyárudvar, porta, közterület. Időjárás elleni védelem szükséges.</p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==========================================
+                     STEP 4: KIEGÉSZÍTŐK INFO (Info 3)
+                =========================================== -->
+                <div class="step-module" data-step="4">
+                    <div class="max-w-3xl mx-auto">
+                        <div class="text-center mb-8">
+                            <span class="text-brand-lightblue font-bold tracking-wider uppercase text-sm mb-2 block">Biztonságos tárolás</span>
+                            <h2 class="text-3xl font-bold text-gray-900 font-heading">Minden helyzetre felkészülve</h2>
+                            <p class="text-gray-600 mt-3">Egy AED csak akkor ment életet, ha percek alatt elérhető és bevetésre kész.</p>
+                        </div>
+                        
+                        <div class="grid md:grid-cols-3 gap-6">
+                            <div class="bg-white border border-gray-100 p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                                <div class="w-12 h-12 bg-blue-50 text-brand-blue rounded-lg flex items-center justify-center text-xl mb-4">
+                                    <i class="fa-solid fa-box-open"></i>
+                                </div>
+                                <h3 class="font-bold text-gray-800 mb-2 font-heading">Fali Konzolok & Kabinok</h3>
+                                <p class="text-sm text-gray-600">A készülék láthatóságáért és védelméért. Kültérre riasztóval és fűtéssel ellátott kabin elengedhetetlen a fagyás ellen.</p>
+                            </div>
+                            <div class="bg-white border border-gray-100 p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                                <div class="w-12 h-12 bg-blue-50 text-brand-blue rounded-lg flex items-center justify-center text-xl mb-4">
+                                    <i class="fa-solid fa-child"></i>
+                                </div>
+                                <h3 class="font-bold text-gray-800 mb-2 font-heading">Gyermek Elektródák</h3>
+                                <p class="text-sm text-gray-600">Iskolákba, sportlétesítményekbe kritikus kiegészítő, amely automatikusan csökkenti a leadott energiaszintet (Joule).</p>
+                            </div>
+                            <div class="bg-white border border-gray-100 p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                                <div class="w-12 h-12 bg-blue-50 text-brand-blue rounded-lg flex items-center justify-center text-xl mb-4">
+                                    <i class="fa-solid fa-scissors"></i>
+                                </div>
+                                <h3 class="font-bold text-gray-800 mb-2 font-heading">CPR Kezdőkészlet</h3>
+                                <p class="text-sm text-gray-600">Ruhavágó olló, borotva, törlőkendő és izolációs maszk – minden, ami a higiénikus és gyors elektróda-felhelyezéshez kell.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==========================================
+                     STEP 5: SZOLGÁLTATÁSOK INFO (Info 4)
+                =========================================== -->
+                <div class="step-module" data-step="5">
+                    <div class="grid md:grid-cols-2 gap-10 items-center h-full">
+                        <div class="order-2 md:order-1 relative">
+                             
+                             <!-- ========================= KÉP BEILLESZTÉS 2 ========================= -->
+                             <!-- A 'src="..."' részbe másold be a saját képed linkjét. Pl: src="kepek/oktatas.jpg" -->
+                             <img src="AED_02.png" alt="AED Oktatás" class="rounded-xl shadow-lg border border-gray-100 relative z-10 w-full">
+                             <!-- ===================================================================== -->
+
+                             <div class="absolute -top-4 -left-4 w-24 h-24 bg-brand-lightblue rounded-full opacity-20 z-0"></div>
+                             <div class="absolute -bottom-4 -right-4 w-32 h-32 bg-brand-yellow rounded-full opacity-20 z-0"></div>
+                        </div>
+                        <div class="order-1 md:order-2">
+                            <span class="text-brand-red font-bold tracking-wider uppercase text-sm mb-2 block">Szolgáltatási Csomagok</span>
+                            <h2 class="text-3xl font-bold text-gray-900 mb-6 font-heading">Nem csak eszközt, biztonságot szállítunk</h2>
+                            <p class="text-gray-600 mb-6 font-body leading-relaxed">
+                                A Winterthur Medical Zrt. a teljes életciklus alatt partner marad. A berendezések telepítése csak az első lépés.
+                            </p>
+                            
+                            <div class="bg-white border border-l-4 border-l-brand-blue p-4 rounded shadow-sm mb-4">
+                                <h4 class="font-bold text-gray-900 mb-1"><i class="fa-solid fa-user-doctor text-brand-blue mr-2"></i> Helyszíni Oktatás</h4>
+                                <p class="text-sm text-gray-600">Szakértőink a kihelyezéssel egyidőben elméleti és gyakorlati (fantom babás) betanítást tartanak a dolgozóknak, hogy vészhelyzetben magabiztosan cselekedjenek.</p>
+                            </div>
+
+                            <div class="bg-white border border-l-4 border-l-brand-yellow p-4 rounded shadow-sm">
+                                <h4 class="font-bold text-gray-900 mb-1"><i class="fa-solid fa-wrench text-brand-yellow mr-2"></i> Rendszeres Karbantartás</h4>
+                                <p class="text-sm text-gray-600">Az elektródák és akkumulátorok cseréjét, valamint a műszaki felülvizsgálatot időszakosan, automatikusan elvégezzük.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==========================================
+                     STEP 6: SZEMÉLYRE SZABÁS (Választás 2)
+                =========================================== -->
+                <div class="step-module" data-step="6">
+                    <div class="max-w-4xl mx-auto">
+                        <h2 class="text-3xl font-bold text-gray-900 mb-2 font-heading text-center">Állítsa össze a tökéletes csomagot</h2>
+                        <p class="text-center text-gray-500 mb-8">Válassza ki azokat a kiegészítőket és szolgáltatásokat, melyekre a projekt során szüksége lesz.</p>
+
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <!-- Tárolás -->
+                            <div class="space-y-4">
+                                <h3 class="font-bold text-gray-700 border-b pb-2">Tárolás és Kiegészítők</h3>
+                                
+                                <label class="checkbox-card cursor-pointer block">
+                                    <input type="checkbox" id="chk_wallMount" onchange="updateAccessory('wallMount', this.checked)">
+                                    <div class="flex items-center p-4 border-2 border-gray-200 rounded-lg hover:border-brand-lightblue transition-all">
+                                        <div class="w-10 h-10 bg-gray-100 rounded flex items-center justify-center mr-4 text-gray-500"><i class="fa-solid fa-box"></i></div>
+                                        <div class="flex-grow">
+                                            <div class="font-bold text-gray-800">Beltéri Fali Konzol / Szekrény</div>
+                                            <div class="text-xs text-gray-500">Jól látható, biztonságos elhelyezés.</div>
+                                        </div>
+                                        <div class="check-icon text-brand-lightblue opacity-0 transition-all scale-50"><i class="fa-solid fa-circle-check text-xl"></i></div>
+                                    </div>
+                                </label>
+
+                                <label class="checkbox-card cursor-pointer block">
+                                    <input type="checkbox" id="chk_outdoorCabinet" onchange="updateAccessory('outdoorCabinet', this.checked)">
+                                    <div class="flex items-center p-4 border-2 border-gray-200 rounded-lg hover:border-brand-lightblue transition-all">
+                                        <div class="w-10 h-10 bg-gray-100 rounded flex items-center justify-center mr-4 text-gray-500"><i class="fa-solid fa-temperature-arrow-up"></i></div>
+                                        <div class="flex-grow">
+                                            <div class="font-bold text-gray-800">Kültéri Fűthető Kabin (Riasztóval)</div>
+                                            <div class="text-xs text-gray-500">Fagyvédelem és vagyonvédelem kültérre.</div>
+                                        </div>
+                                        <div class="check-icon text-brand-lightblue opacity-0 transition-all scale-50"><i class="fa-solid fa-circle-check text-xl"></i></div>
+                                    </div>
+                                </label>
+
+                                <label class="checkbox-card cursor-pointer block">
+                                    <input type="checkbox" id="chk_childPad" onchange="updateAccessory('childPad', this.checked)">
+                                    <div class="flex items-center p-4 border-2 border-gray-200 rounded-lg hover:border-brand-lightblue transition-all">
+                                        <div class="w-10 h-10 bg-gray-100 rounded flex items-center justify-center mr-4 text-gray-500"><i class="fa-solid fa-baby"></i></div>
+                                        <div class="flex-grow">
+                                            <div class="font-bold text-gray-800">Gyermek Elektróda (Opcionális)</div>
+                                            <div class="text-xs text-gray-500">Kisebb energia leadásához (8 év vagy 25kg alatt).</div>
+                                        </div>
+                                        <div class="check-icon text-brand-lightblue opacity-0 transition-all scale-50"><i class="fa-solid fa-circle-check text-xl"></i></div>
+                                    </div>
+                                </label>
+
+                                <label class="checkbox-card cursor-pointer block">
+                                    <input type="checkbox" id="chk_cprKit" onchange="updateAccessory('cprKit', this.checked)">
+                                    <div class="flex items-center p-4 border-2 border-gray-200 rounded-lg hover:border-brand-lightblue transition-all">
+                                        <div class="w-10 h-10 bg-gray-100 rounded flex items-center justify-center mr-4 text-gray-500"><i class="fa-solid fa-kit-medical"></i></div>
+                                        <div class="flex-grow">
+                                            <div class="font-bold text-gray-800">Életmentő CPR Készlet</div>
+                                            <div class="text-xs text-gray-500">Olló, borotva, maszk, kesztyű.</div>
+                                        </div>
+                                        <div class="check-icon text-brand-lightblue opacity-0 transition-all scale-50"><i class="fa-solid fa-circle-check text-xl"></i></div>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <!-- Szolgáltatás -->
+                            <div class="space-y-4">
+                                <h3 class="font-bold text-gray-700 border-b pb-2">Kiegészítő Szolgáltatások</h3>
+                                
+                                <label class="checkbox-card cursor-pointer block">
+                                    <input type="checkbox" id="chk_training" onchange="updateAccessory('training', this.checked)">
+                                    <div class="flex items-center p-4 border-2 border-gray-200 rounded-lg hover:border-brand-lightblue transition-all bg-yellow-50/30">
+                                        <div class="w-10 h-10 bg-yellow-100 rounded flex items-center justify-center mr-4 text-brand-yellow"><i class="fa-solid fa-graduation-cap"></i></div>
+                                        <div class="flex-grow">
+                                            <div class="font-bold text-gray-800">Helyszíni Betanítás és Oktatás</div>
+                                            <div class="text-xs text-gray-500">Gyakorlati képzés a dolgozóknak a helyszínen.</div>
+                                        </div>
+                                        <div class="check-icon text-brand-lightblue opacity-0 transition-all scale-50"><i class="fa-solid fa-circle-check text-xl"></i></div>
+                                    </div>
+                                </label>
+
+                                <label class="checkbox-card cursor-pointer block">
+                                    <input type="checkbox" id="chk_maintenance" onchange="updateAccessory('maintenance', this.checked)">
+                                    <div class="flex items-center p-4 border-2 border-gray-200 rounded-lg hover:border-brand-lightblue transition-all bg-blue-50/30">
+                                        <div class="w-10 h-10 bg-blue-100 rounded flex items-center justify-center mr-4 text-brand-blue"><i class="fa-solid fa-clipboard-check"></i></div>
+                                        <div class="flex-grow">
+                                            <div class="font-bold text-gray-800">Éves Karbantartási Szerződés</div>
+                                            <div class="text-xs text-gray-500">Nyugalom garantálva: automata alkatrészcsere és szerviz.</div>
+                                        </div>
+                                        <div class="check-icon text-brand-lightblue opacity-0 transition-all scale-50"><i class="fa-solid fa-circle-check text-xl"></i></div>
+                                    </div>
+                                </label>
+                                
+                                <div class="bg-brand-lightbg p-4 rounded-lg mt-4 border border-gray-200">
+                                    <p class="text-sm text-gray-600"><i class="fa-solid fa-lightbulb text-brand-yellow mr-1"></i> <strong>Tipp:</strong> B2B ügyfeleink 85%-a az edukációt és a karbantartást is igényli az AED mellé a teljes jogi és munkavédelmi megfelelés érdekében.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==========================================
+                     STEP 7: ÖSSZEGZÉS & LEAD FORM
+                =========================================== -->
+                <div class="step-module" data-step="7">
+                    <div class="grid md:grid-cols-5 gap-8 h-full">
+                        <!-- Összegzés panel -->
+                        <div class="md:col-span-2 bg-gray-50 p-6 rounded-xl border border-gray-200 flex flex-col">
+                            <h3 class="text-xl font-bold text-brand-blue mb-4 font-heading border-b pb-2">Az Ön Csomagja</h3>
+                            
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="font-bold text-gray-800">AED7000 Készülék</div>
+                                <div class="bg-brand-blue text-white px-3 py-1 rounded-full text-sm font-bold" id="summaryQty">1 db</div>
+                            </div>
+                            
+                            <div class="text-sm text-gray-600 mb-4 pb-4 border-b border-gray-200">
+                                <div id="summaryEnv"><i class="fa-solid fa-building mr-1"></i> Beltéri felhasználás</div>
+                            </div>
+                            
+                            <h4 class="font-bold text-gray-700 text-sm uppercase tracking-wider mb-3">Választott Kiegészítők:</h4>
+                            <ul id="summaryAccessories" class="space-y-2 text-sm text-gray-700 flex-grow">
+                                <!-- JS generálja -->
+                            </ul>
+                            
+                            <div class="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-500 text-center">
+                                Egyedi árajánlatát a Winterthur Medical Zrt. szakértője fogja összeállítani a megadott paraméterek alapján.
+                            </div>
+                        </div>
+                        
+                        <!-- Űrlap -->
+                        <div class="md:col-span-3">
+                            <h2 class="text-3xl font-bold text-gray-900 mb-2 font-heading">Kérje egyedi ajánlatunkat</h2>
+                            <p class="text-gray-500 mb-6 text-sm">Adja meg elérhetőségeit, és kollégánk 24 órán belül felveszi Önnel a kapcsolatot a személyre szabott, akár volumenkedvezményes ajánlattal.</p>
+                            
+                            <form id="leadForm" onsubmit="submitForm(event)" class="space-y-4">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-bold text-gray-700 mb-1">Kapcsolattartó neve *</label>
+                                        <input type="text" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-lightblue focus:border-brand-lightblue outline-none transition-all">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-bold text-gray-700 mb-1">Cégnév / Intézmény *</label>
+                                        <input type="text" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-lightblue focus:border-brand-lightblue outline-none transition-all">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-bold text-gray-700 mb-1">Email cím *</label>
+                                        <input type="email" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-lightblue focus:border-brand-lightblue outline-none transition-all">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-bold text-gray-700 mb-1">Telefonszám *</label>
+                                        <input type="tel" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-lightblue focus:border-brand-lightblue outline-none transition-all">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-gray-700 mb-1">Megjegyzés / Egyedi igény (Opcionális)</label>
+                                    <textarea rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-lightblue focus:border-brand-lightblue outline-none transition-all"></textarea>
+                                </div>
+                                
+                                <div class="pt-2">
+                                    <button type="submit" class="w-full bg-brand-red hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 font-heading text-lg">
+                                        Személyre szabott ajánlat kérése
+                                    </button>
+                                </div>
+                            </form>
+                            
+                            <!-- Sikeres küldés üzenet (Rejtett) -->
+                            <div id="successMessage" class="hidden h-full flex-col items-center justify-center text-center py-10">
+                                <div class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-4xl mb-4">
+                                    <i class="fa-solid fa-check"></i>
+                                </div>
+                                <h3 class="text-2xl font-bold text-gray-900 mb-2 font-heading">Köszönjük megkeresését!</h3>
+                                <p class="text-gray-600">Az igényeit rögzítettük. A Winterthur Medical Zrt. szakértője hamarosan felveszi Önnel a kapcsolatot.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            
+            <!-- Footer Controls -->
+            <div class="bg-gray-50 border-t border-gray-200 p-4 md:px-12 flex justify-between items-center" id="footerControls">
+                <button id="btnPrev" onclick="changeStep(-1)" class="text-gray-500 hover:text-brand-blue font-bold py-2 px-4 rounded transition-colors invisible">
+                    <i class="fa-solid fa-arrow-left mr-2"></i> Vissza
+                </button>
+                <div class="text-sm font-bold text-gray-400 font-heading tracking-widest uppercase">
+                    Lépés <span id="stepCounter">1</span> / <span id="totalSteps">7</span>
+                </div>
+                <button id="btnNext" onclick="changeStep(1)" class="bg-brand-blue hover:bg-blue-800 text-white font-bold py-2 px-6 rounded-lg shadow transition-colors font-heading">
+                    Tovább <i class="fa-solid fa-arrow-right ml-2"></i>
+                </button>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- JavaScript Vezérlő Logika -->
+    <script>
+        // Konfigurátor Állapot (State)
+        let configState = {
+            quantity: 1,
+            environment: 'indoor',
+            accessories: {
+                wallMount: false,
+                outdoorCabinet: false,
+                childPad: false,
+                cprKit: false,
+                training: false,
+                maintenance: false
+            }
+        };
+
+        // Kiegészítők megnevezései a megjelenítéshez
+        const accessoryNames = {
+            wallMount: 'Beltéri Fali Konzol',
+            outdoorCabinet: 'Kültéri Fűthető Kabin',
+            childPad: 'Gyermek Elektróda',
+            cprKit: 'CPR Kezdőkészlet',
+            training: 'Helyszíni Oktatás',
+            maintenance: 'Éves Karbantartás'
+        };
+
+        // Lépések Kezelése
+        let currentStep = 1;
+        const totalSteps = document.querySelectorAll('.step-module').length;
+        document.getElementById('totalSteps').innerText = totalSteps;
+
+        function updateQtyDisplay(val) {
+            document.getElementById('qtyDisplay').innerText = val;
+            configState.quantity = val;
+        }
+
+        function updateState(key, value) {
+            configState[key] = value;
+            
+            // Ha kültérre váltanak, automatikusan javasoljuk a kültéri kabint a 6. lépésen
+            if (key === 'environment' && value === 'outdoor') {
+                document.getElementById('chk_outdoorCabinet').checked = true;
+                configState.accessories.outdoorCabinet = true;
+            }
+        }
+
+        function updateAccessory(key, isChecked) {
+            configState.accessories[key] = isChecked;
+        }
+
+        function changeStep(direction) {
+            if (currentStep + direction > 0 && currentStep + direction <= totalSteps) {
+                
+                const container = document.getElementById('moduleContainer');
+                const overlay = document.getElementById('heartbeatOverlay');
+                const ekgPath = overlay.querySelector('.ekg-path');
+                const heartbeatAudio = document.getElementById('heartbeatSound');
+
+                // --- 0. Hang lejátszása ---
+                if (heartbeatAudio) {
+                    heartbeatAudio.currentTime = 0; // Visszatekerjük az elejére
+                    // A play() egy promise-t ad vissza. Elkapjuk a hibát, ha a böngésző esetleg tiltaná a hanglejátszást.
+                    heartbeatAudio.play().catch(e => console.log("Hanglejátszás blokkolva, vagy hiányzik a heartbeat.mp3 fájl."));
+                }
+
+                // --- 1. Homályosítás és Animáció indítása ---
+                container.classList.add('blur-sm', 'opacity-50', 'pointer-events-none');
+                overlay.classList.remove('hidden');
+                overlay.classList.add('flex');
+                
+                // SVG animáció "resetelése", hogy mindig lefusson
+                ekgPath.classList.remove('animate-ekg');
+                void ekgPath.offsetWidth; // Reflow kényszerítése
+                ekgPath.classList.add('animate-ekg');
+
+                // --- 2. Várakozás az animációra, majd oldalcsere ---
+                setTimeout(() => {
+                    // Jelenlegi modul elrejtése
+                    document.querySelector(`.step-module[data-step="${currentStep}"]`).classList.remove('active');
+                    
+                    // Léptetés
+                    currentStep += direction;
+                    
+                    // Új modul megjelenítése
+                    document.querySelector(`.step-module[data-step="${currentStep}"]`).classList.add('active');
+                    updateUI();
+                    
+                    // --- 3. Élesedés és animáció eltüntetése ---
+                    container.classList.remove('blur-sm', 'opacity-50', 'pointer-events-none');
+                    
+                    // Késleltetett overlay eltüntetés, hogy a vonal kifusson
+                    setTimeout(() => {
+                        overlay.classList.add('hidden');
+                        overlay.classList.remove('flex');
+                    }, 150);
+
+                }, 750); // 750ms-ig tart a homályosított átvezetés
+            }
+        }
+
+        function updateUI() {
+            // Progress Bar frissítése
+            const progress = (currentStep / totalSteps) * 100;
+            document.getElementById('progressBar').style.width = `${progress}%`;
+            
+            // Számláló frissítése
+            document.getElementById('stepCounter').innerText = currentStep;
+
+            // Gombok láthatósága
+            const btnPrev = document.getElementById('btnPrev');
+            const btnNext = document.getElementById('btnNext');
+            const footerControls = document.getElementById('footerControls');
+
+            if (currentStep === 1) {
+                btnPrev.classList.add('invisible');
+            } else {
+                btnPrev.classList.remove('invisible');
+            }
+
+            if (currentStep === totalSteps) {
+                // Az utolsó lépésen elrejtjük a "Tovább" gombot, mert az űrlap küld gombja veszi át a szerepet
+                btnNext.classList.add('hidden');
+                buildSummary(); // Összegzés frissítése mielőtt megjelenik
+            } else {
+                btnNext.classList.remove('hidden');
+                footerControls.classList.remove('hidden'); // Biztosítjuk, hogy a lábléc látszik
+            }
+        }
+
+        function buildSummary() {
+            // Mennyiség
+            document.getElementById('summaryQty').innerText = `${configState.quantity} db`;
+            
+            // Elhelyezés
+            const envDiv = document.getElementById('summaryEnv');
+            if(configState.environment === 'indoor') {
+                envDiv.innerHTML = '<i class="fa-solid fa-building mr-1"></i> Főként beltéri elhelyezés';
+            } else {
+                envDiv.innerHTML = '<i class="fa-solid fa-tree-city mr-1 text-brand-lightblue"></i> Kültéri elhelyezést is igényel';
+            }
+
+            // Kiegészítők listázása
+            const listUl = document.getElementById('summaryAccessories');
+            listUl.innerHTML = '';
+            
+            let hasAccessory = false;
+            for (const [key, isChecked] of Object.entries(configState.accessories)) {
+                if (isChecked) {
+                    hasAccessory = true;
+                    const li = document.createElement('li');
+                    li.className = 'flex items-start';
+                    li.innerHTML = `<i class="fa-solid fa-check text-green-500 mt-1 mr-2"></i> ${accessoryNames[key]}`;
+                    listUl.appendChild(li);
+                }
+            }
+            
+            if (!hasAccessory) {
+                listUl.innerHTML = '<li class="text-gray-400 italic">Nem választott kiegészítő szolgáltatást.</li>';
+            }
+        }
+
+        function submitForm(e) {
+            e.preventDefault();
+            // Itt történne az AJAX/API hívás a backend felé a configState és az űrlap adataival.
+            // Szimuláljuk a sikert:
+            document.getElementById('leadForm').classList.add('hidden');
+            document.getElementById('successMessage').classList.remove('hidden');
+            document.getElementById('successMessage').classList.add('flex');
+            
+            // Lábléc gombok elrejtése véglegesen
+            document.getElementById('footerControls').classList.add('hidden');
+        }
+
+        // Inicializálás
+        updateUI();
+
+    </script>
+</body>
+</html>
